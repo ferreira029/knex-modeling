@@ -1,0 +1,184 @@
+name: Release & Publish
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (patch, minor, major)'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+      tag:
+        description: 'NPM tag (latest, beta, alpha)'
+        required: true
+        default: 'latest'
+        type: choice
+        options:
+          - latest
+          - beta
+          - alpha
+
+env:
+  NODE_VERSION: '18'
+
+jobs:
+  release:
+    name: Release & Publish
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+    
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        token: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        registry-url: 'https://registry.npmjs.org'
+        
+    - name: Configure Git
+      run: |
+        git config --global user.name 'github-actions[bot]'
+        git config --global user.email '41898282+github-actions[bot]@users.noreply.github.com'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Run validation pipeline
+      run: |
+        npm run ci:version-check
+        npm run typecheck
+        npm run lint
+        npm run test:ci
+        
+    - name: Build project
+      run: npm run build
+      
+    # Manual workflow dispatch
+    - name: Version bump (manual)
+      if: github.event_name == 'workflow_dispatch'
+      run: |
+        npm version ${{ github.event.inputs.version }} --no-git-tag-version
+        
+    - name: Create release notes
+      if: github.event_name == 'workflow_dispatch'
+      run: |
+        VERSION=$(node -p "require('./package.json').version")
+        echo "VERSION=v$VERSION" >> $GITHUB_ENV
+        
+        # Generate changelog since last tag
+        LAST_TAG=$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || echo "")
+        if [ -n "$LAST_TAG" ]; then
+          echo "## Changes since $LAST_TAG" > RELEASE_NOTES.md
+          git log $LAST_TAG..HEAD --pretty=format:"- %s (%an)" >> RELEASE_NOTES.md
+        else
+          echo "## Initial Release" > RELEASE_NOTES.md
+          echo "First release of knex-modeling" >> RELEASE_NOTES.md
+        fi
+        
+    - name: Commit version bump
+      if: github.event_name == 'workflow_dispatch'
+      run: |
+        git add package.json package-lock.json
+        git commit -m "chore: bump version to $VERSION"
+        git tag $VERSION
+        git push origin main --follow-tags
+        
+    # Extract version from tag for tag-triggered releases
+    - name: Extract version from tag
+      if: startsWith(github.ref, 'refs/tags/v')
+      run: |
+        VERSION=${GITHUB_REF#refs/tags/}
+        echo "VERSION=$VERSION" >> $GITHUB_ENV
+        
+    - name: Determine npm tag
+      run: |
+        if [[ "${{ github.event.inputs.tag }}" != "" ]]; then
+          NPM_TAG="${{ github.event.inputs.tag }}"
+        elif [[ "$VERSION" == *"beta"* ]]; then
+          NPM_TAG="beta"
+        elif [[ "$VERSION" == *"alpha"* ]]; then
+          NPM_TAG="alpha"
+        else
+          NPM_TAG="latest"
+        fi
+        echo "NPM_TAG=$NPM_TAG" >> $GITHUB_ENV
+        
+    - name: Publish to NPM
+      run: |
+        echo "Publishing knex-modeling@$VERSION with tag $NPM_TAG"
+        if [ "$NPM_TAG" = "latest" ]; then
+          npm publish
+        else
+          npm publish --tag $NPM_TAG
+        fi
+      env:
+        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        
+    - name: Create GitHub Release
+      uses: actions/create-release@v1
+      if: github.event_name == 'workflow_dispatch'
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ env.VERSION }}
+        release_name: Release ${{ env.VERSION }}
+        body_path: RELEASE_NOTES.md
+        draft: false
+        prerelease: ${{ contains(env.VERSION, 'beta') || contains(env.VERSION, 'alpha') }}
+        
+    - name: Upload release assets
+      if: github.event_name == 'workflow_dispatch'
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./dist/
+        asset_name: knex-modeling-${{ env.VERSION }}-dist.zip
+        asset_content_type: application/zip
+        
+    - name: Notify success
+      run: |
+        echo "🎉 Successfully published knex-modeling@$VERSION to NPM with tag '$NPM_TAG'"
+        echo "📦 Package: https://www.npmjs.com/package/knex-modeling"
+        if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+          echo "🏷️  Release: https://github.com/$GITHUB_REPOSITORY/releases/tag/$VERSION"
+        fi
+
+  post-release:
+    name: Post-Release Tasks
+    runs-on: ubuntu-latest
+    needs: release
+    if: always() && needs.release.result == 'success'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Update documentation
+      run: |
+        echo "📚 Documentation update triggered"
+        # Add documentation update logic here if needed
+        
+    - name: Cache cleanup
+      run: |
+        echo "🧹 Cleaning up old caches"
+        # Add cache cleanup logic here if needed 

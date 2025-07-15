@@ -1,0 +1,15 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+echo "🔍 Running pre-commit checks..."
+
+# Run validation pipeline
+npm run validate
+
+# Check if version was updated when package.json changes
+if git diff --cached --name-only | grep -q "package.json"; then
+  echo "📦 package.json modified - checking version..."
+  npm run ci:version-check
+fi
+
+echo "✅ Pre-commit checks passed!" 

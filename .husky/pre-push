@@ -1,0 +1,28 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+echo "🚀 Running pre-push checks..."
+
+# Check if pushing to main branch
+branch=$(git branch --show-current)
+if [ "$branch" = "main" ]; then
+  echo "⚠️  Pushing to main branch - running full validation..."
+  
+  # Run comprehensive validation
+  npm run validate
+  
+  # Build to ensure everything compiles
+  npm run build
+  
+  echo "✅ Main branch validation passed!"
+else
+  echo "ℹ️  Pushing to feature branch '$branch' - running basic checks..."
+  
+  # Run lighter validation for feature branches
+  npm run typecheck
+  npm run test:ci
+  
+  echo "✅ Feature branch validation passed!"
+fi
+
+echo "🎉 Ready to push!" 

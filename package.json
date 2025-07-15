@@ -1,0 +1,84 @@
+{
+  "name": "knex-modeling",
+  "version": "1.1.0",
+  "description": "A TypeScript modeling library that extends Knex for better typing and easier database modeling",
+  "main": "dist/index.min.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "knex-modeling": "dist/cli.prod.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "npm run build:prod",
+    "build:prod": "npm run build:tsc && npm run build:bundle",
+    "build:dev": "npm run build:tsc",
+    "build:tsc": "tsc",
+    "build:bundle": "node scripts/build.js",
+    "build:dev-watch": "tsc --watch",
+    "test": "jest",
+    "test:ci": "jest --ci --coverage --watchAll=false",
+    "lint": "eslint src/**/*.ts",
+    "lint:fix": "eslint src/**/*.ts --fix",
+    "typecheck": "tsc --noEmit",
+    "clean": "rimraf dist",
+    "prebuild": "npm run clean",
+    "prepublishOnly": "npm run build && npm run test:ci",
+    "publish:npm": "npm publish",
+    "publish:beta": "npm publish --tag beta",
+    "version:patch": "npm version patch",
+    "version:minor": "npm version minor",
+    "version:major": "npm version major",
+    "release": "npm run version:patch && npm run publish:npm",
+    "release:minor": "npm run version:minor && npm run publish:npm",
+    "release:major": "npm run version:major && npm run publish:npm",
+    "prepare": "husky install",
+    "validate": "npm run typecheck && npm run lint && npm run test:ci",
+    "ci:version-check": "node scripts/version-check.js"
+  },
+  "keywords": [
+    "knex",
+    "typescript",
+    "database",
+    "modeling",
+    "orm",
+    "cli",
+    "migration"
+  ],
+  "author": "Your Name <your.email@example.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-username/knex-modeling.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-username/knex-modeling/issues"
+  },
+  "homepage": "https://github.com/your-username/knex-modeling#readme",
+  "dependencies": {
+    "knex": ">=2.0.0"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.0.0",
+    "@types/node": "^20.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.21.0",
+    "@typescript-eslint/parser": "^6.21.0",
+    "esbuild": "^0.19.12",
+    "eslint": "^8.57.1",
+    "husky": "^8.0.3",
+    "jest": "^29.0.0",
+    "rimraf": "^5.0.10",
+    "ts-jest": "^29.0.0",
+    "typescript": "^5.3.0"
+  },
+  "peerDependencies": {
+    "knex": ">=2.0.0"
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  }
+}
