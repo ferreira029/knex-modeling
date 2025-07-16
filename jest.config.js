@@ -43,7 +43,7 @@ module.exports = {
   
   // Module resolution
   moduleFileExtensions: ['ts', 'js', 'json'],
-  moduleNameMapping: {
+  moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1'
   },
   
