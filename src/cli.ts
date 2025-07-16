@@ -134,13 +134,11 @@ class KnexModelingCLI {
     const tableName = schemaName.toLowerCase()
     const modelTemplate = `import { createModel, defineSchema } from 'knex-modeling'
 
-const ${schemaName.toLowerCase()}Schema = defineSchema({
+export const ${schemaName.toLowerCase()}Schema = defineSchema({
   id: { type: 'increments', primary: true },
-  name: { type: 'string', required: true, maxLength: 255 },
-  description: { type: 'text', nullable: true },
-  isActive: { type: 'boolean', defaultTo: true },
-  createdAt: { type: 'timestamp', defaultTo: 'now' },
-  updatedAt: { type: 'timestamp', defaultTo: 'now', onUpdate: 'now' }
+  // token: { type: 'uuid', defaultTo: 'uuid_generate_v4()', primary: true },
+  created_at: { type: 'timestamp', defaultTo: 'now' },
+  updated_at: { type: 'timestamp', defaultTo: 'now' }
 })
 
 export const ${schemaName} = createModel({
@@ -174,11 +172,23 @@ export const ${schemaName} = createModel({
     const files = fs.readdirSync(this.options.modelsDir)
       .filter(file => file.endsWith('.ts') || file.endsWith('.js'))
 
+    // Register ts-node for TypeScript files
+    const hasTypeScriptFiles = files.some(file => file.endsWith('.ts'))
+    if (hasTypeScriptFiles) {
+      try {
+        require('ts-node').register({ transpileOnly: true })
+      } catch (error) {
+        console.warn('⚠️  ts-node not available, falling back to compiled JavaScript files')
+      }
+    }
+
     for (const file of files) {
       const filePath = path.join(this.options.modelsDir, file)
       try {
-        // Dynamic import of the model file
-        const module = await import(path.resolve(filePath))
+        // Use require for TypeScript support
+        const absolutePath = path.resolve(filePath)
+        delete require.cache[absolutePath]
+        const module = require(absolutePath)
         
         // Look for exported models (classes with schema property)
         for (const [exportName, exportValue] of Object.entries(module)) {
@@ -360,7 +370,7 @@ export async function down(knex: Knex): Promise<void> {
  * - Primary keys and indexes
  * - Automatic timestamp management
  */
-const defaultSchema = defineSchema({
+export const defaultSchema = defineSchema({
   // Primary key - auto-incrementing integer
   id: { type: 'increments', primary: true },
   
@@ -383,8 +393,8 @@ const defaultSchema = defineSchema({
   uuid: { type: 'uuid', defaultTo: 'uuid_generate_v4()' },
   
   // Timestamp fields with automatic management
-  createdAt: { type: 'timestamp', defaultTo: 'now' },
-  updatedAt: { type: 'timestamp', defaultTo: 'now', onUpdate: 'now' }
+  created_at: { type: 'timestamp', defaultTo: 'now' },
+  updated_at: { type: 'timestamp', defaultTo: 'now' }
 })
 
 export const Default = createModel({
